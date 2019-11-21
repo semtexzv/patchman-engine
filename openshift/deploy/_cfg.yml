@@ -1,0 +1,6 @@
+deploy_order:
+  stage0:
+    components:
+      - "database"
+      - "listener"
+      - "webserver"

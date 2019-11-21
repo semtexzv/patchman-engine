@@ -1,0 +1,7 @@
+deploy_order:
+  stage0:
+    timeout: 600
+    components:
+      - "database"
+      - "listener"
+      - "webserver"

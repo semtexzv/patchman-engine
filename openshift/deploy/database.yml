@@ -6,7 +6,6 @@ metadata:
 parameters:
   - name: IMAGE_NAMESPACE
     displayName: Image namespace
-    value: spm-test
   - name: IMAGE_TAG
     displayName: Image tag
     value: latest
@@ -38,6 +37,8 @@ objects:
       selector:
         app: spm-engine
         deploymentconfig: spm-engine-database
+      strategy:
+        type: Recreate
       template:
         metadata:
           labels:

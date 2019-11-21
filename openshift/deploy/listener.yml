@@ -6,7 +6,6 @@ metadata:
 parameters:
   - name: IMAGE_NAMESPACE
     displayName: Image namespace
-    value: spm-test
   - name: IMAGE_TAG
     displayName: Image tag
     value: latest
@@ -38,6 +37,7 @@ objects:
                 requests: { cpu: 200m, memory: 512Mi }
               env:
                 - { name: KAFKA_HOST, value: platform }
+                - { name: KAFKA_PORT, value: "9092" }
                 - { name: KAFKA_GROUP, value: spm }
                 - { name: UPLOAD_TOPIC, value: platform.upload.available }
                 - { name: EVENTS_TOPIC, value: platform.inventory.events }

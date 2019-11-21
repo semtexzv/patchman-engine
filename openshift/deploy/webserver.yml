@@ -6,7 +6,6 @@ metadata:
 parameters:
   - name: IMAGE_NAMESPACE
     displayName: Image namespace
-    value: spm-test
   - name: IMAGE_TAG
     displayName: Image tag
     value: latest
