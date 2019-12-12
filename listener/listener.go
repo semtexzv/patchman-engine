@@ -1,6 +1,7 @@
 package listener
 
 import (
+	"app/base"
 	"app/base/utils"
 	"app/manager/middlewares"
 	"context"
@@ -12,8 +13,6 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-const INVENTORY_API_PREFIX = "/api/inventory/v1"
-const VMAAS_API_PREFIX = "/api"
 
 var (
 	uploadReader    *kafka.Reader
@@ -50,12 +49,12 @@ func configure() {
 
 	config := inventory.NewConfiguration()
 	config.Debug = true
-	config.BasePath = inventoryAddr + INVENTORY_API_PREFIX
+	config.BasePath = inventoryAddr + base.INVENTORY_API_PREFIX
 
 	inventoryClient = inventory.NewAPIClient(config)
 
 	cfg := vmaas.NewConfiguration()
-	cfg.BasePath = utils.GetenvOrFail("VMAAS_ADDRESS") + VMAAS_API_PREFIX
+	cfg.BasePath = utils.GetenvOrFail("VMAAS_ADDRESS") + base.VMAAS_API_PREFIX
 	cfg.Debug = true
 
 	vmaasClient = vmaas.NewAPIClient(cfg)

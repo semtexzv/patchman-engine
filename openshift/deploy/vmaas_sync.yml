@@ -9,6 +9,7 @@ parameters:
   - name: IMAGE_TAG
     displayName: Image tag
     value: latest
+  - name: VMAAS_ADDRESS
   - name: VMAAS_WS_ADDRESS
 objects:
   - apiVersion: v1
@@ -45,6 +46,7 @@ objects:
                 - { name: LOG_STYLE, value: plain }
                 - { name: GIN_MODE, value: release }
 
+                - { name: VMAAS_ADDRESS, value: "${VMAAS_ADDRESS}"}
                 - { name: VMAAS_WS_ADDRESS, value: "${VMAAS_WS_ADDRESS}"}
 
                 - { name: DB_TYPE, value: postgres }

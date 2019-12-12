@@ -1,6 +1,4 @@
-FROM centos:8
-
-RUN yum module -y install go-toolset postgresql && yum -y install git
+FROM golang:1.11
 
 ENV GOPATH=/go
 ENV GO111MODULE=on
@@ -14,6 +12,7 @@ RUN go mod vendor
 ADD /base       /go/src/app/base
 ADD /manager    /go/src/app/manager
 ADD /listener   /go/src/app/listener
+ADD /vmaas_sync /go/src/app/vmaas_sync
 ADD /docs       /go/src/app/docs
 ADD /scripts    /go/src/app/scripts
 ADD main.go     /go/src/app/

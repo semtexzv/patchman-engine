@@ -45,6 +45,15 @@ type ErrataMetaData struct {
 	Url          *string
 }
 
+type ErrataMetaDataSlice []ErrataMetaData
+func (this ErrataMetaDataSlice) ToInterfaceSlice() []interface{} {
+	var res []interface{}
+	for _, v := range this {
+		res = append(res, v)
+	}
+	return res
+}
+
 func (ErrataMetaData) TableName() string {
 	return "errata_metadata"
 }
