@@ -3,6 +3,7 @@ package listener
 import (
 	"app/base"
 	"app/base/utils"
+	"app/evaluator"
 	"app/manager/middlewares"
 	"context"
 	"encoding/json"
@@ -107,6 +108,7 @@ func RunListener() {
 	go runMetrics()
 
 	configure()
+	evaluator.Configure()
 
 	// Only respond to creation and update msgs on upload topic
 	go baseListener(uploadReader, makeKafkaHandler(uploadHandler))

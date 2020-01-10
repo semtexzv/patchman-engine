@@ -16,7 +16,7 @@ import (
 const unknown = "unknown"
 
 var (
-	vmaasClient     *vmaas.APIClient
+	vmaasClient *vmaas.APIClient
 )
 
 func Configure() {
@@ -52,23 +52,59 @@ func Evaluate(systemID int, ctx context.Context, updatesReq vmaas.UpdatesRequest
 
 func processSystemAdvisories(tx *gorm.DB, systemID int, vmaasData vmaas.UpdatesV2Response) error {
 	reported := getReportedAdvisories(vmaasData)
-	stored, err := getStoredAdvisoriesMap(tx, systemID)
+	stored, err := getSystemAdvisoriesMap(tx, systemID)
+
 	if err != nil {
 		return errors.Wrap(err, "Unable to get system stored advisories")
 	}
+	// Advisories which need to be stored
+	var modified models.SystemAdvisoriesSlice
+	// Names of newly unpatched advisories, newly patched advisories
+	unpatchedNames, patched := walkAdvisories(reported, stored)
 
-	patched := getPatchedAdvisories(reported, *stored)
-	newsAdvisoriesNames, unpatched := getNewAndUnpatchedAdvisories(reported, *stored)
-
-	news, nAdded, err := ensureAdvisoriesInDb(tx, newsAdvisoriesNames)
-	if err != nil {
-		return errors.Wrap(err, "Unable to ensure new system advisories in db")
+	// Set the when_patched field for every newly patched advisory
+	now := time.Now()
+	for _, p := range patched {
+		p.WhenPatched = &now
+		modified = append(modified, p)
 	}
-	utils.Log("added", nAdded).Info("Added new unknown advisories into the db")
 
-	err = updateSystemAdvisories(tx, systemID, patched, unpatched, *news)
-	if err != nil {
-		return errors.Wrap(err, "Unable to update system advisories")
+	// Retrieve metadata for advisories, which
+	// TODO  load metadata by names
+	unpatchedAdvisories, err := getStoredAdvisoriesMap(tx.Where("name in (?)", unpatchedNames).Preload("Advisory"))
+
+	for n := range unpatchedNames {
+		// Default case, if we have an advisory
+		if adv, has := unpatchedAdvisories[n]; has {
+			adv.WhenPatched = nil
+			modified = append(modified, adv)
+		} else {
+			// Exeptional case, we do not have advisory metadata stored, can happen if evaluation happens in the middle
+			// of vmaas-sync
+			// Create new advisories one by one, and append to modifed list
+			md := models.AdvisoryMetadata{
+				Name:        n,
+				Description: unknown,
+				Synopsis:    unknown,
+				Summary:     unknown,
+				Solution:    unknown,
+			}
+			err = tx.Create(&md).Error
+			if err != nil {
+				panic(err)
+			}
+			modified = append(modified, models.SystemAdvisories{
+				SystemID:   systemID,
+				AdvisoryID: md.ID,
+			})
+		}
+	}
+	// Insert, and on conflict create change the when_patched field
+	insertQ := database.OnConflictUpdate(tx, "id", "when_patched")
+	errs := database.BulkInsertChunk(insertQ, modified.ToInterfaceSlice(), 1000)
+
+	if errs != nil && len(errs) > 0 {
+		return errors.Wrap(errs[0], "Unable to update system advisories")
 	}
 	return nil
 }
@@ -83,9 +119,9 @@ func getReportedAdvisories(vmaasData vmaas.UpdatesV2Response) map[string]bool {
 	return advisories
 }
 
-func getStoredAdvisoriesMap(tx *gorm.DB, systemID int) (*map[string]models.SystemAdvisories, error) {
+func getStoredAdvisoriesMap(tx *gorm.DB) (map[string]models.SystemAdvisories, error) {
 	var advisories []models.SystemAdvisories
-	err := database.SystemAdvisoriesQueryByID(tx, systemID).Preload("Advisory").Find(&advisories).Error
+	err := tx.Preload("Advisory").Find(&advisories).Error
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +130,34 @@ func getStoredAdvisoriesMap(tx *gorm.DB, systemID int) (*map[string]models.Syste
 	for _, advisory := range advisories {
 		advisoriesMap[advisory.Advisory.Name] = advisory
 	}
-	return &advisoriesMap, nil
+	return advisoriesMap, nil
+}
+
+func getSystemAdvisoriesMap(tx *gorm.DB, systemID int) (map[string]models.SystemAdvisories, error) {
+	return getStoredAdvisoriesMap(database.SystemAdvisoriesQueryByID(tx, systemID))
+}
+
+func walkAdvisories(reported map[string]bool, stored map[string]models.SystemAdvisories) (map[string]struct{}, map[string]models.SystemAdvisories) {
+
+	unpatched := map[string]struct{}{}
+	patched := map[string]models.SystemAdvisories{}
+
+	for advisory := range reported {
+		if sa, has := stored[advisory]; !has || sa.WhenPatched != nil {
+			unpatched[advisory] = struct{}{}
+		}
+	}
+	for advisory := range stored {
+		if _, has := reported[advisory]; !has {
+			patched[advisory] = stored[advisory]
+		}
+	}
+
+	unpatchedArr := []string{}
+	for a := range unpatched {
+		unpatchedArr = append(unpatchedArr, a)
+	}
+	return unpatchedArr, patched
 }
 
 func getNewAndUnpatchedAdvisories(reported map[string]bool, stored map[string]models.SystemAdvisories) (

@@ -4,6 +4,7 @@ import (
 	"app/base/database"
 	"app/base/models"
 	"app/base/utils"
+	"app/evaluator"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -135,5 +136,6 @@ func hostUploadReceived(hostId string, account string, identity string) {
 
 	// Evaluation part
 	utils.Log("systemId", systemId).Info("TODO - evaluate")
+	evaluator.Evaluate(systemId, ctx, updatesReq)
 	// TODO call evaluate, later it will be moved to separate component - evaluator
 }
