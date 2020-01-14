@@ -14,6 +14,7 @@ parameters:
   - name: DOCKERFILE
     description: Source Dockerfile filename
     value: database/Dockerfile.rhel7
+  - name: GITHUB_WEBHOOK_SECRET
 
 objects:
   - apiVersion: v1
@@ -40,6 +41,9 @@ objects:
           forcePull: true
       triggers:
         - type: ConfigChange
+        - type: GitHub
+          github:
+            secret: "${GITHUB_WEBHOOK_SECRET}"
 
   - apiVersion: v1
     kind: ImageStream
