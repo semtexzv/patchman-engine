@@ -30,7 +30,7 @@ func TestUpdateSystemPlatform(t *testing.T) {
 	accountID := getOrCreateTestAccount(t)
 	req := vmaas.UpdatesV3Request{
 		PackageList:    []string{"package0"},
-		RepositoryList: []string{},
+		RepositoryList: []string{"repo1", "repo2", "repo3"},
 		ModulesList:    []vmaas.UpdatesRequestModulesList{},
 		Releasever:     "7Server",
 		Basearch:       "x86_64",

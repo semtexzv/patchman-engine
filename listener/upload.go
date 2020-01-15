@@ -72,6 +72,52 @@ func getOrCreateAccount(account string) (int, error) {
 	return rhAccount.ID, err
 }
 
+func updateSystemRepos(system *models.SystemPlatform, updatesReq *vmaas.UpdatesV3Request) error {
+	var err error
+	if len(updatesReq.RepositoryList) == 0 {
+		repos := make(models.RepoSlice, len(updatesReq.RepositoryList))
+		for i, r := range updatesReq.RepositoryList {
+			repos[i] = models.Repo{
+				Name: r,
+			}
+		}
+
+		err = database.BulkInsert(database.OnConflictUpdate(database.Db, "name", "name"), repos)
+		utils.Log().Error(repos)
+		if err != nil {
+			utils.Log("err", err.Error()).Error("Saving repos")
+			return err
+		}
+
+		sysRepos := make(models.SystemRepoSlice, len(repos))
+		for i, r := range repos {
+			sysRepos[i] = models.SystemRepo{
+				SystemID: system.ID,
+				RepoID:   r.ID,
+			}
+		}
+
+		err = database.OnConflictUpdateMulti(database.Db, []string{"system_id", "repo_id"}, "repo_id").
+			Create(&sysRepos).Error
+		if err != nil {
+			utils.Log("err", err.Error()).Error("Saving system repos")
+			return err
+		}
+	}
+
+	subQ := database.Db.Table("repo").Where("name in ?", updatesReq.RepositoryList).Select("id")
+	err = database.Db.
+		Where("system_id = ?", system.ID).
+		Delete("repo_id not in ?", subQ.SubQuery()).
+		Delete(&models.SystemRepo{}).
+		Error
+	if err != nil {
+		utils.Log("err", err.Error()).Error("Deleting old repos")
+		return err
+	}
+	return nil
+}
+
 // Stores or updates base system profile, returing internal system id
 func updateSystemPlatform(inventoryID string, accountID int, updatesReq *vmaas.UpdatesV3Request) (
 	*models.SystemPlatform, error) {
@@ -109,6 +155,13 @@ func updateSystemPlatform(inventoryID string, accountID int, updatesReq *vmaas.U
 		utils.Log("err", err.Error()).Error("Saving host into the database")
 		return nil, err
 	}
+
+	err = updateSystemRepos(&systemPlatform, updatesReq)
+	if err != nil {
+		utils.Log("err", err.Error()).Error("Saving host into the database")
+		return nil, err
+	}
+
 	return &systemPlatform, nil
 }
 
