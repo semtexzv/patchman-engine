@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"app/base/core"
 	"app/base/utils"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -47,4 +48,32 @@ func ApplySort(c *gin.Context, tx *gorm.DB, allowedFields ...string) (*gorm.DB, 
 		}
 	}
 	return tx, nil
+}
+
+type ListMeta struct {
+	DataFormat string  `json:"data_format"`
+	Filter     *string `json:"filter"`
+	Limit      int     `json:"limit"`
+	Offset     int     `json:"offset"`
+	Advisory   string  `json:"advisory"`
+	Page       int     `json:"page"`
+	PageSize   int     `json:"page_size"`
+	Pages      int     `json:"pages"`
+	Enabled    bool    `json:"enabled"`
+	TotalItems int     `json:"total_items"`
+}
+
+func BuildListMeta(tx *gorm.DB, c *gin.Context, allowedSortFields ...string) (*gorm.DB, ListMeta, error) {
+	limit, offset, err := utils.LoadLimitOffset(c, core.DefaultLimit)
+
+	tx, err = ApplySort(c, tx, allowedSortFields...)
+	meta := ListMeta{
+		Limit:  limit,
+		Offset: offset,
+		Page:       offset / limit,
+		PageSize:   limit,
+		Pages:      total / limit,
+	}
+
+	return tx, meta, err
 }

@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"app/base/core"
 	"app/base/database"
 	"app/base/utils"
 	"app/manager/middlewares"
@@ -16,7 +15,7 @@ var AdvisoriesSortFields = []string{"name", "description", "synopsis", "summary"
 type AdvisoriesResponse struct {
 	Data  []AdvisoryItem `json:"data"`
 	Links Links          `json:"links"`
-	Meta  AdvisoryMeta   `json:"meta"`
+	Meta  ListMeta   `json:"meta"`
 }
 
 type AdvisoryWithSystemsAffected struct {
@@ -43,46 +42,41 @@ type AdvisoryWithSystemsAffected struct {
 func AdvisoriesListHandler(c *gin.Context) {
 	account := c.GetString(middlewares.KeyAccount)
 
-	limit, offset, err := utils.LoadLimitOffset(c, core.DefaultLimit)
+	query := buildQueryAdvisories(account)
+
+	query, meta, err := BuildListMeta(query, c, AdvisoriesSortFields...)
+
 	if err != nil {
 		LogAndRespBadRequest(c, err, err.Error())
 		return
 	}
 
-	query := buildQueryAdvisories(account)
-	query, err = ApplySort(c, query, AdvisoriesSortFields...)
+	err = query.Count(&meta.TotalItems).Error
 	if err != nil {
 		LogAndRespError(c, err, "db error")
 		return
 	}
 
-	var total int
-	err = query.Count(&total).Error
-	if err != nil {
-		LogAndRespError(c, err, "db error")
-		return
-	}
-
-	if offset > total {
+	if meta.Offset > meta.TotalItems {
 		c.JSON(http.StatusBadRequest, utils.ErrorResponse{Error: "too big offset"})
 		return
 	}
 
 	var advisories []AdvisoryWithSystemsAffected
-	err = query.Limit(limit).Offset(offset).Find(&advisories).Error
+	err = query.Limit(meta.Limit).Offset(meta.Offset).Find(&advisories).Error
 	if err != nil {
 		LogAndRespError(c, err, "db error")
 		return
 	}
 
 	data := buildAdvisoriesData(&advisories)
-	links := CreateLinks("/api/patch/v1/advisories", offset, limit, total,
+	links := CreateLinks("/api/patch/v1/advisories", meta.Offset, meta.Limit, meta.TotalItems,
 		"&data_format=json")
-	meta := buildAdvisoriesMeta(limit, offset, total)
+
 	var resp = AdvisoriesResponse{
 		Data:  *data,
 		Links: links,
-		Meta:  *meta,
+		Meta:  meta,
 	}
 	c.JSON(http.StatusOK, &resp)
 }
@@ -122,9 +116,6 @@ func buildAdvisoriesMeta(limit, offset, total int) *AdvisoryMeta {
 		Filter:     nil,
 		Limit:      limit,
 		Offset:     offset,
-		Page:       offset / limit,
-		PageSize:   limit,
-		Pages:      total / limit,
 		TotalItems: total,
 	}
 	return &meta

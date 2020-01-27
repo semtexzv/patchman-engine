@@ -109,13 +109,13 @@ func hostUploadReceived(hostID string, account string, identity string) {
 	// Create new context, which has the apikey value set. This is then used as a value for `x-rh-identity`
 	ctx := context.WithValue(context.Background(), inventory.ContextAPIKey, apiKey)
 
-	inventoryData, res, err := inventoryClient.HostsApi.ApiHostGetHostSystemProfileById(ctx, []string{hostID}, nil)
+	inventoryData, _, err := inventoryClient.HostsApi.ApiHostGetHostSystemProfileById(ctx, []string{hostID}, nil)
 	if err != nil {
-		utils.Log("err", err.Error()).Error("Could not inventory system profile")
+		utils.Log("hostID", hostID, "err", err.Error()).Error("Could not inventory system profile")
 		return
 	}
 
-	utils.Log("res", res).Debug("System profile download complete")
+	utils.Log("hostID", hostID).Debug("System profile download complete")
 
 	if inventoryData.Count == 0 {
 		utils.Log().Info("No system details returned, host is probably deleted")
