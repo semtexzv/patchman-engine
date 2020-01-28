@@ -112,6 +112,9 @@ func updateSystemPlatform(inventoryID string, accountID int, updatesReq *vmaas.U
 
 // We have received new upload, update stored host data, and re-evaluate the host against VMaaS
 func processUpload(hostID string, account string, identity string) error {
+	tStart := time.Now()
+	defer handleDuration.WithLabelValues(EventUpload).Observe(time.Since(tStart).Seconds() * 1000)
+
 	utils.Log("hostID", hostID).Debug("Downloading system profile")
 
 	apiKey := inventory.APIKey{Prefix: "", Key: identity}

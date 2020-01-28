@@ -23,10 +23,17 @@ var (
 		Subsystem: "listener",
 		Name:      "kafka_message_received",
 	}, []string{"event", "type"})
+
+	handleDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "patchman_engine",
+		Subsystem: "listener",
+		Name:      "handle_duration_milliseconds",
+		Buckets:   []float64{.1, 1, 10, 100, 1000, },
+	}, []string{"event"})
 )
 
 func init() {
-	prometheus.MustRegister(messagesReceivedCnt)
+	prometheus.MustRegister(messagesReceivedCnt, handleDuration)
 }
 
 func RunMetrics() {
