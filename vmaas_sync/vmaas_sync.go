@@ -64,7 +64,11 @@ func websocketHandler(data []byte, conn *websocket.Conn) error {
 			// This probably means programming error, better to exit with nonzero error code, so the error is noticed
 			utils.Log("err", err.Error()).Fatal("Failed to sync advisories")
 		}
-		// TODO: Cause re-evaluation of systems
+		err = RepoBasedRecalc()
+		if err != nil {
+			// This probably means programming error, better to exit with nonzero error code, so the error is noticed
+			utils.Log("err", err.Error()).Fatal("Failed to cause repo-based recalc")
+		}
 	}
 	return nil
 }

@@ -4,6 +4,10 @@ import (
 	"time"
 )
 
+type TimestampKV struct {
+	Name  string
+	Value time.Time
+}
 type RhAccount struct {
 	ID   int
 	Name string
