@@ -74,6 +74,10 @@ func RunVmaasSync() {
 
 	go RunMetrics()
 
+	err := syncAdvisories()
+	if err != nil {
+		utils.Log("err", err.Error()).Info("Sync error occured")
+	}
 	// Continually try to reconnect
 	for {
 		conn, _, err := websocket.DefaultDialer.Dial(utils.GetenvOrFail("VMAAS_WS_ADDRESS"), nil)

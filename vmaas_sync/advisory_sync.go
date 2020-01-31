@@ -142,7 +142,7 @@ func syncAdvisories() error {
 	pageIdx := 0
 	maxPageIdx := 1
 
-	for pageIdx < maxPageIdx {
+	for pageIdx <= maxPageIdx {
 		opts := vmaas.AppErrataHandlerPostPostOpts{
 			ErrataRequest: optional.NewInterface(vmaas.ErrataRequest{
 				Page:          float32(pageIdx),
@@ -160,7 +160,7 @@ func syncAdvisories() error {
 		vmaasCallCnt.WithLabelValues("success").Inc()
 
 		maxPageIdx = int(data.Pages)
-		pageIdx++
+		pageIdx = int(data.Page) + 1
 
 		utils.Log("count", len(data.ErrataList)).Debug("Downloaded advisories")
 
