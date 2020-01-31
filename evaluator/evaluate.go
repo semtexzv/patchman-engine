@@ -153,7 +153,6 @@ func getNewAndUnpatchedAdvisories(reported map[string]bool, stored map[string]mo
 			if storedAdvisory.WhenPatched != nil { // this advisory was already patched and now is un-patched again
 				unpatchedAdvisories = append(unpatchedAdvisories, storedAdvisory.AdvisoryID)
 			}
-			utils.Log("advisory", storedAdvisory.Advisory.Name).Debug("still not patched")
 		} else {
 			newAdvisories = append(newAdvisories, reportedAdvisory)
 		}
@@ -287,6 +286,7 @@ func RunEvaluator() {
 	Configure()
 
 	kafkaReader.HandleEvents(func(event mqueue.PlatformEvent) {
+		utils.Log("host", event.ID).Info("Evaluating")
 		err := Evaluate(context.Background(), event.ID, EvalTypeUpload)
 		if err != nil {
 			utils.Log("err", err.Error()).Error("Eval message handling")

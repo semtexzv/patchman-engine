@@ -115,7 +115,7 @@ func updateSystemPlatform(inventoryID string, accountID int, updatesReq *vmaas.U
 // nolint: funlen
 // We have received new upload, update stored host data, and re-evaluate the host against VMaaS
 func processUpload(hostID string, account string, identity string) error {
-	utils.Log("hostID", hostID).Debug("Downloading system profile")
+	utils.Log("host", hostID).Debug("Downloading system profile")
 
 	apiKey := inventory.APIKey{Prefix: "", Key: identity}
 	// Create new context, which has the apikey value set. This is then used as a value for `x-rh-identity`
