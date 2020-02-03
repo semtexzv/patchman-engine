@@ -466,6 +466,26 @@ END;
 $delete_system$
     LANGUAGE 'plpgsql';
 
+
+CREATE OR REPLACE FUNCTION delete_culled_systems()
+    RETURNS INTEGER
+AS
+$fun$
+DECLARE
+    culled integer;
+BEGIN
+    select count(*)
+    from (
+             select delete_system(id)
+             from system_platform
+             where culled_timestamp > now()
+         ) t
+    INTO culled;
+    RETURN culled;
+END;
+$fun$
+    language plpgsql;
+
 -- rh_account
 CREATE TABLE IF NOT EXISTS rh_account
 (
