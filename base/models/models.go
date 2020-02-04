@@ -34,6 +34,7 @@ type SystemPlatform struct {
 	StaleTimestamp        *time.Time
 	StaleWarningTimestamp *time.Time
 	CulledTimestamp       *time.Time
+	Stale                 bool
 }
 
 func (SystemPlatform) TableName() string {

@@ -114,6 +114,7 @@ func updateSystemPlatform(inventoryID string, accountID int,
 		StaleTimestamp:        optParseTimestap(invData.StaleTimestamp),
 		StaleWarningTimestamp: optParseTimestap(invData.StaleWarningTimestamp),
 		CulledTimestamp:       optParseTimestap(invData.CulledTimestamp),
+		Stale : false,
 	}
 
 	tx := database.OnConflictUpdate(database.Db, "inventory_id", "vmaas_json", "json_checksum",
