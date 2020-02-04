@@ -216,12 +216,9 @@ func createSystemAdvisories(t *testing.T, systemID int, advisoryIDs []int,
 	checkSystemAdvisoriesWhenPatched(t, systemID, advisoryIDs, whenPatched)
 }
 
-func createAdvisoryAccountData(t *testing.T, rhAccountID int, advisoryIDs []int,
-	systemsAffected int) {
+func createAdvisoryAccountData(t *testing.T, rhAccountID int, advisoryIDs []int, systemsAffected int) {
 	for _, advisoryID := range advisoryIDs {
-		err := database.Db.Create(&models.AdvisoryAccountData{
-			AdvisoryID: advisoryID, RhAccountID: rhAccountID, SystemsAffected: systemsAffected}).Error
-		assert.Nil(t, err)
+		assert.Nil(t, database.Db.Exec("SELECT * FROM refresh_advisory_caches(?,?)", rhAccountID, advisoryID).Error)
 	}
 	database.CheckAdvisoriesAccountData(t, rhAccountID, advisoryIDs, systemsAffected)
 }
@@ -253,7 +250,7 @@ func deleteSystemAdvisories(t *testing.T, systemID int, advisoryIDs []int) {
 		Find(&systemAdvisories).Error
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(systemAdvisories))
-	assert.Nil(t, database.Db.Exec("SELECT * FROM update_system_caches(?)", systemID).Error)
+	assert.Nil(t, database.Db.Exec("SELECT * FROM refresh_system_caches(NULL,?)", systemID).Error)
 }
 
 func deleteAdvisoryAccountData(t *testing.T, rhAccountID int, advisoryIDs []int) {

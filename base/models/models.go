@@ -13,6 +13,7 @@ func (RhAccount) TableName() string {
 	return "rh_account"
 }
 
+// nolint: maligned
 type SystemPlatform struct {
 	ID          int
 	InventoryID string

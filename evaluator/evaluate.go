@@ -74,7 +74,7 @@ func Evaluate(ctx context.Context, systemName string,
 		return errors.Wrap(err, "Unable to process system advisories")
 	}
 
-	err = tx.Exec("SELECT * FROM update_system_caches(?)", system.ID).Error
+	err = tx.Exec("SELECT * FROM refresh_system_caches(NULL,?)", system.ID).Error
 	if err != nil {
 		tx.Rollback()
 		evaluationCnt.WithLabelValues("error-update-system-caches").Inc()

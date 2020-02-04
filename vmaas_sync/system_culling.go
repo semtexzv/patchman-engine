@@ -7,7 +7,6 @@ import (
 )
 
 func deleteCulledSystems() {
-
 	var culled int
 	rows, err := database.Db.Exec("select culled from delete_culled_systems()").Rows()
 	if err != nil {
