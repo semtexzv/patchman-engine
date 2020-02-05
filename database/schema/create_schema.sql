@@ -160,16 +160,40 @@ CREATE OR REPLACE FUNCTION on_system_advisory_update()
     RETURNS TRIGGER AS
 $update_system$
 DECLARE
-    CHANGED RECORD;
-    system  RECORD;
+    CHANGED   RECORD;
+    system    RECORD;
+    increment setof RECORD;
+    decrement setof RECORD;
+    change      RECORD;
 BEGIN
+
+    increment := (
+        select new.advisory_id, new.system_id
+        from new
+                 LEFT JOIN old ON
+                new.system_id = old.system_id AND new.advisory_id = old.advisory_id AND
+                (old.when_patched IS NOT NULL AND NEW.when_patched IS NULL)
+    );
+
+    decrement := (
+        select new.advisory_id, new.system_id
+        from new
+                 LEFT JOIN old ON
+                new.system_id = old.system_id AND new.advisory_id = old.advisory_id AND
+                (old.when_patched IS NOT NULL AND NEW.when_patched IS NULL)
+    );
+
+    change := (
+        select coalesce(old.advisory_id, new.advisory_id), c
+    );
+
     -- Changed can be used to refer to new form of affected row, or the old row in case of deletion
-    IF (TG_OP = 'INSERT' OR TG_OP = 'UPDATE') THEN
+    IF
+        (TG_OP = 'INSERT' OR TG_OP = 'UPDATE') THEN
         CHANGED = NEW;
     ELSIF (TG_OP = 'DELETE') THEN
         CHANGED = OLD;
     END IF;
-
     SELECT * FROM system_platform where system_platform.id = CHANGED.system_id INTO system;
 
     -- System was opted out or marked stale, it is not included in counts, We don't have to modify them
@@ -589,16 +613,12 @@ CREATE TRIGGER system_advisories_set_first_reported
 EXECUTE PROCEDURE set_first_reported();
 
 CREATE TRIGGER system_advisories_on_update
-    AFTER INSERT OR UPDATE
+    AFTER INSERT OR UPDATE OR DELETE
     ON system_advisories
-    FOR EACH ROW
+    REFERENCING OLD TABLE AS old NEW TABLE AS new
+    FOR EACH STATEMENT
 EXECUTE PROCEDURE on_system_advisory_update();
 
-CREATE TRIGGER system_advisories_on_delete
-    BEFORE DELETE
-    ON system_advisories
-    FOR EACH ROW
-EXECUTE PROCEDURE on_system_advisory_update();
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON system_advisories TO evaluator;
 -- manager needs to be able to update things like 'status' on a sysid/advisory combination, also needs to delete
