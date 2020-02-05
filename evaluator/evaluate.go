@@ -180,31 +180,12 @@ func getPatchedAdvisories(reported map[string]bool, stored map[string]models.Sys
 	return patchedAdvisories
 }
 
+// nolint: unparam
 func updateSystemAdvisoriesWhenPatched(tx *gorm.DB, systemID, rhAccountID int, advisoryIDs []int,
 	whenPatched *time.Time) error {
 	err := tx.Model(models.SystemAdvisories{}).
 		Where("system_id = ? AND advisory_id IN (?)", systemID, advisoryIDs).
 		Update("when_patched", whenPatched).Error
-	if err != nil {
-		return err
-	}
-
-	affectedSystemIncrement := 0
-	if whenPatched != nil {
-		affectedSystemIncrement = -1
-	} else {
-		affectedSystemIncrement = 1
-	}
-
-	err = updateAccountAdvisoriesAffectedSystems(tx, rhAccountID, advisoryIDs, affectedSystemIncrement)
-	return err
-}
-
-func updateAccountAdvisoriesAffectedSystems(tx *gorm.DB, rhAccountID int, advisoryIDs []int,
-	affectedSystemIncrement int) error {
-	err := tx.Model(models.AdvisoryAccountData{}).
-		Where("rh_account_id = ? AND advisory_id IN (?)", rhAccountID, advisoryIDs).
-		UpdateColumn("systems_affected", gorm.Expr("systems_affected + ?", affectedSystemIncrement)).Error
 	return err
 }
 
@@ -244,27 +225,9 @@ func ensureSystemAdvisories(tx *gorm.DB, systemID int, advisoryIDs []int) error 
 	return err
 }
 
-func ensureAdvisoryAccountDataInDb(tx *gorm.DB, rhAccountID int, advisoryIDs []int) error {
-	accountData := make(models.AdvisoryAccountDataSlice, len(advisoryIDs))
-	for i, advisoryID := range advisoryIDs {
-		accountData[i] = models.AdvisoryAccountData{RhAccountID: rhAccountID, AdvisoryID: advisoryID}
-	}
-
-	txOnConflict := tx.Set("gorm:insert_option", "ON CONFLICT DO NOTHING")
-	err := database.BulkInsert(txOnConflict, accountData)
-	return err
-}
-
 func updateSystemAdvisories(tx *gorm.DB, systemID, rhAccountID int, patched, unpatched []int) error {
 	whenPatched := time.Now()
 	err := updateSystemAdvisoriesWhenPatched(tx, systemID, rhAccountID, patched, &whenPatched)
-	if err != nil {
-		return err
-	}
-
-	// delete items with no system related
-	err = tx.Where("rh_account_id = ? AND systems_affected = 0", rhAccountID).
-		Delete(&models.AdvisoryAccountData{}).Error
 	if err != nil {
 		return err
 	}
@@ -274,12 +237,11 @@ func updateSystemAdvisories(tx *gorm.DB, systemID, rhAccountID int, patched, unp
 		return err
 	}
 
-	err = ensureAdvisoryAccountDataInDb(tx, rhAccountID, unpatched)
+	err = updateSystemAdvisoriesWhenPatched(tx, systemID, rhAccountID, unpatched, nil)
 	if err != nil {
 		return err
 	}
 
-	err = updateSystemAdvisoriesWhenPatched(tx, systemID, rhAccountID, unpatched, nil)
 	return err
 }
 
