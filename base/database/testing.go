@@ -43,7 +43,13 @@ func CheckAdvisoriesAccountData(t *testing.T, rhAccountID int, advisoryIDs []int
 	err := Db.Where("rh_account_id = ? AND advisory_id IN (?)", rhAccountID, advisoryIDs).
 		Find(&advisoryAccountData).Error
 	assert.Nil(t, err)
-	assert.Equal(t, len(advisoryIDs), len(advisoryAccountData))
+
+	// If we expect 0 affected systems, we probably automatically deleted the entries
+	if systemsAffected > 0 {
+		assert.Equal(t, len(advisoryIDs), len(advisoryAccountData), "Invalid advisory_account_data cache")
+	} else {
+		assert.Equal(t, 0, len(advisoryAccountData))
+	}
 	for _, item := range advisoryAccountData {
 		assert.Equal(t, systemsAffected, item.SystemsAffected)
 	}

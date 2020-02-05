@@ -155,6 +155,60 @@ BEGIN
 END;
 $system_update$ LANGUAGE plpgsql;
 
+
+CREATE OR REPLACE FUNCTION on_system_advisory_update()
+    RETURNS TRIGGER AS
+$update_system$
+DECLARE
+    CHANGED RECORD;
+    system  RECORD;
+BEGIN
+    -- Changed can be used to refer to new form of affected row, or the old row in case of deletion
+    IF (TG_OP = 'INSERT' OR TG_OP = 'UPDATE') THEN
+        CHANGED = NEW;
+    ELSIF (TG_OP = 'DELETE') THEN
+        CHANGED = OLD;
+    END IF;
+
+    SELECT * FROM system_platform where system_platform.id = CHANGED.system_id INTO system;
+
+    -- System was opted out or marked stale, it is not included in counts, We don't have to modify them
+    IF system.opt_out = TRUE OR system.last_evaluation IS NULL THEN
+        RETURN CHANGED;
+    END IF;
+
+    -- Increment only when inserting as unpatched
+    -- or updated from patched to unpatched
+    IF (TG_OP = 'INSERT' AND NEW.when_patched IS NULL) OR
+       (TG_OP = 'UPDATE' AND OLD.when_patched IS NOT NULL AND NEW.when_patched IS NULL) THEN
+
+        INSERT INTO advisory_account_data(advisory_id, rh_account_id, systems_affected, systems_status_divergent)
+        SELECT NEW.advisory_id, system.rh_account_id, 1, 0
+        ON CONFLICT (advisory_id, rh_account_id) DO UPDATE
+            SET systems_affected = advisory_account_data.systems_affected + excluded.systems_affected;
+
+        -- Delete, as unpatched, decrement counts
+        -- Patched, decrement counts
+    ELSIF (TG_OP = 'DELETE' AND OLD.when_patched IS NULL) OR
+          (TG_OP = 'UPDATE' AND OLD.when_patched IS NULL AND NEW.when_patched IS NOT NULL) THEN
+
+        UPDATE advisory_account_data aad
+        SET systems_affected = aad.systems_affected - 1
+        WHERE aad.advisory_id = OLD.advisory_id
+          AND aad.rh_account_id = system.rh_account_id;
+
+        DELETE
+        FROM advisory_account_data aad
+        WHERE aad.advisory_id = OLD.advisory_id
+          AND aad.rh_account_id = system.rh_account_id
+          AND systems_affected <= 0;
+
+    END IF;
+    RETURN CHANGED;
+END;
+$update_system$ language plpgsql;
+
+
 -- count system advisories according to advisory type
 CREATE OR REPLACE FUNCTION system_advisories_count(system_id_in INT, advisory_type_id_in INT DEFAULT NULL)
     RETURNS INT AS
@@ -533,6 +587,18 @@ CREATE TRIGGER system_advisories_set_first_reported
     ON system_advisories
     FOR EACH ROW
 EXECUTE PROCEDURE set_first_reported();
+
+CREATE TRIGGER system_advisories_on_update
+    AFTER INSERT OR UPDATE
+    ON system_advisories
+    FOR EACH ROW
+EXECUTE PROCEDURE on_system_advisory_update();
+
+CREATE TRIGGER system_advisories_on_delete
+    BEFORE DELETE
+    ON system_advisories
+    FOR EACH ROW
+EXECUTE PROCEDURE on_system_advisory_update();
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON system_advisories TO evaluator;
 -- manager needs to be able to update things like 'status' on a sysid/advisory combination, also needs to delete
