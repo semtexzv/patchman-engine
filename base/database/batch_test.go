@@ -16,6 +16,14 @@ var defaultValues = TestTableSlice{
 	{Name: "M", Email: "N"},
 }
 
+func TestBatchInsertTypes(t *testing.T) {
+	utils.SkipWithoutDB(t)
+	Configure()
+
+	assert.Error(t, BulkInsert(Db, "string"))
+	assert.Error(t, BulkInsertChunk(Db, "string", 33)[0])
+}
+
 func TestBatchInsert(t *testing.T) {
 	utils.SkipWithoutDB(t)
 	Configure()
