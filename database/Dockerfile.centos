@@ -15,3 +15,9 @@ ADD database/*.sh ${CONTAINER_SCRIPTS_PATH}/
 
 ADD database/schema/*.sql ${CONTAINER_SCRIPTS_PATH}/start/
 ADD database/schema/*.sh ${CONTAINER_SCRIPTS_PATH}/start/
+
+
+ADD database/select-mode.sh /usr/bin/
+
+CMD ["select-mode.sh"]
+
