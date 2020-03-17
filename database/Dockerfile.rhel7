@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/rhscl/postgresql-10-rhel7
+FROM registry.access.redhat.com/rhscl/postgresql-12-rhel7
 
 RUN curl -L https://github.com/golang-migrate/migrate/releases/download/v4.8.0/migrate.linux-amd64.tar.gz \
   | tar xz -C .
@@ -15,3 +15,23 @@ ADD database/*.sh ${CONTAINER_SCRIPTS_PATH}/
 
 ADD database/schema/*.sql ${CONTAINER_SCRIPTS_PATH}/start/
 ADD database/schema/*.sh ${CONTAINER_SCRIPTS_PATH}/start/
+
+ADD database/run-rds /usr/bin/
+ADD database/schema/init-schema.sh /usr/bin/
+
+USER root
+
+RUN yum install -y openssl -y && \
+    mkdir /opt/app-root/src/certificates && cd /opt/app-root/src/certificates && \
+    openssl req -new -text -passout pass:abcd -subj /CN=localhost -out server.req -keyout privkey.pem && \
+    openssl rsa -in privkey.pem -passin pass:abcd -out server.key && \
+    openssl req -x509 -in server.req -text -key server.key -out server.crt && \
+    chmod 0600 server.key && chown postgres:postgres server.key
+
+USER postgres
+
+# copy custom config to enable SSL connections
+ADD /database/custom.conf /opt/app-root/src/postgresql-cfg/
+
+# copy config to enforce SSL connections to ensure all clients use SSL
+ADD /database/pg_hba.conf /opt/app-root/

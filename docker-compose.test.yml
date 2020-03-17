@@ -29,6 +29,7 @@ services:
       context: .
       dockerfile: Dockerfile.test
     env_file:
+      - ./conf/common.env
       - ./conf/test.env
     environment:
       - CI

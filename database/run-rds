@@ -1,0 +1,20 @@
+#!/bin/bash
+
+export PGHOST=$DB_HOST
+export PGUSER=$DB_USER
+export PGPASSWORD=$DB_PASSWD
+export PGPORT=$DB_PORT
+
+# Can fail if database already exists, by default RDS does not create the database
+psql -c "CREATE DATABASE ${DB_NAME}"
+
+export PGDATABASE=$DB_NAME
+
+# Just change ther URL for migrations
+export DB_URL=postgres://${DB_HOST}/$DB_NAME?sslmode=$DB_SSLMODE
+# Otherwise init the DB as usual
+init-schema.sh
+
+echo "RDS Successfuly initialized to latest version"
+
+sleep infinity

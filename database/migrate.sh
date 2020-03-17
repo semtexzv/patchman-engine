@@ -13,4 +13,4 @@ CMD=${@:-up}
 
 migrate \
   -source file://${MIGRATIONS_DIR} \
-  -database $DB_URL $CMD
+  -database $DB_URL $CMD \
