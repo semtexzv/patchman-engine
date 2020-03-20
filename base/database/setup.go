@@ -78,7 +78,7 @@ func loadEnvPostgreSQLConfig() *PostgreSQLConfig {
 		Timeout:               "60s",
 		ReadTimeout:           "60s",
 		WriteTimeout:          "60s",
-		MaxConnections:        250,
+		MaxConnections:        50,
 		MaxIdleConnections:    50,
 		MaxConnectionLifetime: 60,
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"app/base/core"
+	"app/base/database"
 	"app/database_admin"
 	"app/evaluator"
 	"app/listener"
@@ -26,6 +27,10 @@ func main() {
 			evaluator.RunEvaluator()
 			return
 		case "vmaas_sync":
+			_, err := database.CheckCachesValid()
+			if err != nil {
+				panic(err)
+			}
 			vmaas_sync.RunVmaasSync()
 			return
 		case "migrate":
