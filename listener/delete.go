@@ -45,6 +45,6 @@ func deleteHandler(event mqueue.PlatformEvent) {
 		return
 	}
 
-	utils.Log("inventoryID", event.ID, "count", query.RowsAffected).Info("Systems deleted")
+	utils.Log("inventoryID", event.ID, "count", query.RowsAffected).Info("Count deleted")
 	messagesReceivedCnt.WithLabelValues(EventDelete, ReceivedSuccess).Inc()
 }
