@@ -36,7 +36,7 @@ func deleteHandler(event mqueue.PlatformEvent) {
 	if err != nil {
 		utils.Log("inventoryID", event.ID, "err", err.Error()).Error("Could not delete system")
 		messagesReceivedCnt.WithLabelValues(EventDelete, ReceivedErrorProcessing).Inc()
-		return
+		panic(err)
 	}
 
 	if query.RowsAffected == 0 {

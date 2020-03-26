@@ -82,6 +82,7 @@ func uploadHandler(event HostEgressEvent) {
 		return
 	}
 
+	// Invalid input data, skipping
 	if len(event.Host.Account) == 0 {
 		utils.Log("inventoryID", event.Host.ID).Error(ErrorNoAccountProvided)
 		messagesReceivedCnt.WithLabelValues(EventUpload, ReceivedErrorIdentity).Inc()
@@ -89,10 +90,11 @@ func uploadHandler(event HostEgressEvent) {
 	}
 
 	sys, err := processUpload(event.Host.Account, &event.Host)
+	// Internal error with processing, this is a fatal error in handling of this message
 	if err != nil {
 		utils.Log("inventoryID", event.Host.ID, "err", err.Error()).Error(ErrorProcessUpload)
 		messagesReceivedCnt.WithLabelValues(EventUpload, ReceivedErrorProcessing).Inc()
-		return
+		panic(err)
 	}
 
 	if sys.UnchangedSince != nil && sys.LastEvaluation != nil {
@@ -106,7 +108,7 @@ func uploadHandler(event HostEgressEvent) {
 	err = mqueue.WriteEvents(context.Background(), evalWriter, mqueue.PlatformEvent{ID: sys.InventoryID})
 	if err != nil {
 		utils.Log("inventoryID", event.Host.ID, "err", err.Error()).Error(ErrorKafkaSend)
-		return
+		panic(err)
 	}
 
 	messagesReceivedCnt.WithLabelValues(EventUpload, ReceivedSuccess).Inc()

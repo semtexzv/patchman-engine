@@ -4,6 +4,9 @@ package mqueue
 import (
 	"app/base/utils"
 	"context"
+	"github.com/lestrrat-go/backoff"
+	"github.com/pkg/errors"
+
 	"github.com/segmentio/kafka-go"
 	"io"
 	"time"
@@ -66,6 +69,46 @@ func WriterFromEnv(topic string) Writer {
 }
 
 type MessageHandler func(message kafka.Message)
+
+var policy = backoff.NewExponential(
+	backoff.WithInterval(time.Second),
+	backoff.WithMaxRetries(5),
+)
+
+// Create handler which converts panics into errors
+func withRecovery(handler MessageHandler) func(message kafka.Message) error {
+	return func(message kafka.Message) error {
+		var err error
+		handler(message)
+		defer func() {
+			if val := recover(); val != nil {
+				err = errors.Errorf("Handler failed: %v", val)
+			}
+		}()
+		return err
+	}
+}
+
+// Create handler, which attempts to contain panics, and
+func MakeRetryingHandler(handler MessageHandler) MessageHandler {
+	var recoveringHandler = withRecovery(handler)
+
+	return func(message kafka.Message) {
+		var err error
+		b, cancel := policy.Start(context.Background())
+		defer cancel()
+
+		for backoff.Continue(b) {
+			if err = recoveringHandler(message); err != nil {
+				utils.Log("err", err.Error()).Error("Try failed")
+			}
+		}
+		// Backoff didn't succeed, panic, probably tearing down whole process.
+		if err != nil {
+			panic(err)
+		}
+	}
+}
 
 func (t *readerImpl) HandleMessages(handler MessageHandler) {
 	ctx := context.Background()
