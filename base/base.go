@@ -1,6 +1,12 @@
 package base
 
-import "strings"
+import (
+	"context"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+)
 
 const InventoryAPIPrefix = "/api/inventory/v1"
 const VMaaSAPIPrefix = "/api"
@@ -20,4 +26,14 @@ func remove(r rune) rune {
 // in parameter values
 func RemoveInvalidChars(s string) string {
 	return strings.Map(remove, s)
+}
+
+var Context, cancel = context.WithCancel(context.Background())
+
+func HandleSignals() {
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+	signal.Notify(stop, syscall.SIGTERM)
+	<-stop
+	cancel()
 }

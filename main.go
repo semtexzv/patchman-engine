@@ -1,6 +1,7 @@
 package main
 
 import (
+	"app/base"
 	"app/base/core"
 	"app/database_admin"
 	"app/evaluator"
@@ -13,6 +14,7 @@ import (
 
 func main() {
 	core.ConfigureApp()
+	go base.HandleSignals()
 
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
