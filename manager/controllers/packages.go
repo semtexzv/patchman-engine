@@ -17,10 +17,11 @@ var PackagesOpts = ListOpts{
 }
 
 type PackageItem struct {
-	Name             string `json:"name" query:"pn.name"`
+	Name             string `json:"name" query:"(select name from package_name pn where pn.id = p.name_id)"`
+	Evra             string `json:"evra" query:"p.evra"`
 	SystemsInstalled int    `json:"systems_installed" query:"count(sp.id)"`
 	SystemsUpdatable int    `json:"systems_updatable" query:"count(sp.id) filter (where spkg.update_data is not null)"`
-	// Description      string `json:"description"`
+	Description      string `json:"description" query:"(select s.value from strings s where s.id = p.description_hash)"`
 }
 
 type PackagesResponse struct {
@@ -38,7 +39,7 @@ func packagesQuery(acc string) *gorm.DB {
 		Joins("inner join package p on p.id = spkg.package_id").
 		Joins("inner join package_name pn on pn.id = p.name_id").
 		Where("ra.name = ?", acc).
-		Group("ra.id, pn.name")
+		Group("ra.id, p.id")
 }
 
 // @Summary Show me all installed packages across my systems
@@ -54,7 +55,7 @@ func PackagesListHandler(c *gin.Context) {
 
 	query := packagesQuery(account)
 	query, meta, links, err := ListCommon(query, c, "/packages", PackagesOpts)
-	query, _ = ApplyTagsFilter(c, query, "sp.inventory_id")
+	query, _ = ApplyTagsFilter(c, query.Debug(), "sp.inventory_id")
 
 	if err != nil {
 		LogAndRespError(c, err, "database error")
