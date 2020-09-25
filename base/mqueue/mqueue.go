@@ -60,6 +60,7 @@ func ReaderFromEnv(topic string) Reader {
 	config.Consumer.MaxProcessingTime = 3 * time.Second
 	config.Consumer.Fetch.Min = int32(minBytes)
 	config.Consumer.Fetch.Max = int32(maxBytes)
+	config.ChannelBufferSize = 4
 
 	consumer, err := sarama.NewConsumerGroup(addresses, kafkaGroup, config)
 	if err != nil {
