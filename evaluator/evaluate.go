@@ -56,7 +56,7 @@ func configure() {
 	vmaasClient = vmaas.NewAPIClient(vmaasConfig)
 }
 
-func Evaluate(ctx context.Context, inventoryID string, evaluationType string) error {
+func Evaluate(ctx context.Context, inventoryID string, msgTime *time.Time, evaluationType string) error {
 	tStart := time.Now()
 	defer utils.ObserveSecondsSince(tStart, evaluationDuration.WithLabelValues(evaluationType))
 	if enableBypass {
@@ -72,6 +72,11 @@ func Evaluate(ctx context.Context, inventoryID string, evaluationType string) er
 	system, err := loadSystemData(tx, inventoryID)
 	if err != nil {
 		evaluationCnt.WithLabelValues("error-db-read-inventory-data").Inc()
+		return nil
+	}
+
+	if msgTime != nil && system.LastEvaluation != nil && msgTime.Before(*system.LastEvaluation) {
+		evaluationCnt.WithLabelValues("error-late-message").Inc()
 		return nil
 	}
 
@@ -654,7 +659,12 @@ func updateAdvisoryAccountDatas(tx *gorm.DB, system *models.SystemPlatform, patc
 }
 
 func evaluateHandler(event mqueue.PlatformEvent) error {
-	err := Evaluate(base.Context, event.ID, evalLabel)
+	var msgTime *time.Time
+	if event.Timestamp != nil {
+		parsed, _ := time.Parse(base.Rfc3339NoTz,*event.Timestamp)
+		msgTime = &parsed
+	}
+	err := Evaluate(base.Context, event.ID, msgTime, evalLabel)
 	if err != nil {
 		utils.Log("err", err.Error(), "inventoryID", event.ID, "evalLabel", evalLabel).
 			Error("Eval message handling")

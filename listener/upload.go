@@ -97,9 +97,9 @@ func HandleUpload(event HostEvent) error {
 			return nil
 		}
 	}
-
+	t:= time.Now().Format(base.Rfc3339NoTz)
 	// Not sending evaluation message is a fatal error
-	err = mqueue.WriteEvents(base.Context, evalWriter, mqueue.PlatformEvent{ID: sys.InventoryID})
+	err = mqueue.WriteEvents(base.Context, evalWriter, mqueue.PlatformEvent{ID: sys.InventoryID, Timestamp: &t})
 	if err != nil {
 		utils.Log("inventoryID", event.Host.ID, "err", err.Error()).Error(ErrorKafkaSend)
 		return errors.Wrap(err, "Could send eval message")
