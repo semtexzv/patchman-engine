@@ -115,7 +115,11 @@ func (t Filters) Apply(tx *gorm.DB, fields database.AttrMap) (*gorm.DB, error) {
 		if err != nil {
 			return nil, err
 		}
-		tx = tx.Where(query, args...)
+		if fields[name].Aggregate {
+			tx = tx.Having(query, args...)
+		} else {
+			tx = tx.Where(query, args...)
+		}
 	}
 	return tx, nil
 }

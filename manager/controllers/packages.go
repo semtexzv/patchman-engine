@@ -16,20 +16,22 @@ var PackagesOpts = ListOpts{
 	DefaultSort:    "name",
 }
 
+// Structure containing attributes shared between inner loading function and outer response
+type PackageItemAttrs struct {
+	Name             string `json:"name" query:"pn.name"`
+	SystemsInstalled int    `json:"systems_installed" query:"count(sp.id)" aggregate:"true"`
+	SystemsUpdatable int    `json:"systems_updatable" query:"count(sp.id) filter (where spkg.update_data is not null)" aggregate:"true"`
+}
+
+// Loading package data along with package_name
 type PackageItemQuery struct {
 	NameID int `query:"p.name_id"`
 	PackageItemAttrs
 }
 
-type PackageItemAttrs struct {
-	Name             string `json:"name" query:"pn.name"`
-	SystemsInstalled int    `json:"systems_installed" query:"count(sp.id)"`
-	SystemsUpdatable int    `json:"systems_updatable" query:"count(sp.id) filter (where spkg.update_data is not null)"`
-}
-
 type PackageItem struct {
 	PackageItemAttrs
-	Summary string `json:"summary"`
+	Summary string `json:"summary" query:"sum.value"`
 }
 
 type PackagesResponse struct {
@@ -50,6 +52,7 @@ func packagesQuery(acc int) *gorm.DB {
 }
 
 
+// Loading package data along with package_name
 type packageSummary struct {
 	NameID  int
 	Summary string
@@ -59,9 +62,9 @@ type packageSummary struct {
 // order by clause ensures we get the latest released version
 func packageDescQuery(names []int) *gorm.DB {
 	return database.Db.Debug().
-		Select("distinct on(p.name_id) p.name_id, s.value").
+		Select("distinct on(p.name_id) p.name_id, sum.value").
 		Table("package p").
-		Joins("inner join strings s on p.summary_hash = s.id").
+		Joins("inner join strings sum on p.summary_hash = sum.id").
 		Joins("inner join advisory_metadata am on p.advisory_id = am.id").
 		Where("p.name_id in (?)", names).
 		Order("p.name_id, am.public_date")
@@ -103,7 +106,7 @@ func PackagesListHandler(c *gin.Context) {
 		return
 	}
 
-	// We pick out the names of returned packages
+	// We pick out the nameIds of returned packages
 	nameIds := make([]int, len(itemQ))
 	for i, s := range itemQ {
 		nameIds[i] = s.NameID
@@ -112,20 +115,23 @@ func PackagesListHandler(c *gin.Context) {
 	// Find summaries of latest versions for given packages
 	var summaries []packageSummary
 	summaryQuery := packageDescQuery(nameIds)
+	summaryQuery = ApplySearch(c, summaryQuery, "sum.value")
 	if err := summaryQuery.Find(&summaries).Error; err != nil {
 		LogAndRespError(c, err, "database error")
 		return
 	}
 
-	// And assembe the results
-	systems := make([]PackageItem, len(itemQ))
-	for i, s := range itemQ {
-		systems[i].PackageItemAttrs = s.PackageItemAttrs
+	// And assemble the results
+	systems := make([]PackageItem,0, len(itemQ))
+	for _, s := range itemQ {
+		item := PackageItem{PackageItemAttrs: s.PackageItemAttrs}
 		for _, sum := range summaries {
 			if sum.NameID == s.NameID {
-				systems[i].Summary = sum.Summary
+				item.Summary = sum.Summary
+				break
 			}
 		}
+		systems = append(systems, item)
 	}
 
 	c.JSON(200, PackagesResponse{

@@ -16,8 +16,9 @@ type AttrParser func(string) (interface{}, error)
 
 type AttrName = string
 type AttrInfo struct {
-	Query  string
-	Parser AttrParser
+	Query     string
+	Parser    AttrParser
+	Aggregate bool
 }
 
 // Used to store field name => sql query mapping
@@ -101,19 +102,23 @@ func getQueryFromTags(v reflect.Type) (AttrMap, []AttrName, error) {
 			if err != nil {
 				return nil, nil, err
 			}
-
+			_, aggregate := field.Tag.Lookup("aggregate")
 			if expr, has := field.Tag.Lookup("query"); has {
 				res[columnName] = AttrInfo{
 					Query:  expr,
 					Parser: parser,
+					Aggregate: aggregate,
 				}
 			} else {
 				// If we dont have expr, we just use raw column name
 				res[columnName] = AttrInfo{
 					Query:  columnName,
 					Parser: parser,
+					Aggregate: aggregate,
 				}
 			}
+
+
 			// Result HAS to contain all columns, because gorm loads by index, not by name
 			resNames = append(resNames, columnName)
 		}
