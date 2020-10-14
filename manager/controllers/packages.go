@@ -7,8 +7,8 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-var PackagesFields = database.MustGetQueryAttrs(&PackageItemQuery{})
-var PackagesSelect = database.MustGetSelect(&PackageItemQuery{})
+var PackagesFields = database.MustGetQueryAttrs(&PackageItem{})
+var PackagesSelect = database.MustGetSelect(&PackageItem{})
 var PackagesOpts = ListOpts{
 	Fields: PackagesFields,
 	// By default, we show only fresh systems. If all systems are required, you must pass in:true,false filter into the api
@@ -16,20 +16,11 @@ var PackagesOpts = ListOpts{
 	DefaultSort:    "name",
 }
 
-type PackageItemQuery struct {
-	NameID int `query:"p.name_id"`
-	PackageItemAttrs
-}
-
-type PackageItemAttrs struct {
-	Name             string `json:"name" query:"pn.name"`
-	SystemsInstalled int    `json:"systems_installed" query:"count(sp.id)"`
-	SystemsUpdatable int    `json:"systems_updatable" query:"count(sp.id) filter (where spkg.update_data is not null)"`
-}
-
 type PackageItem struct {
-	PackageItemAttrs
-	Summary string `json:"summary"`
+	Name             string `json:"name" query:"detail.name"`
+	SystemsInstalled int    `json:"systems_installed" query:"detail.systems_installed"`
+	SystemsUpdatable int    `json:"systems_updatable" query:"detail.systems_updatable"`
+	Summary          string `json:"summary" query:"sum.summary"`
 }
 
 type PackagesResponse struct {
@@ -38,9 +29,18 @@ type PackagesResponse struct {
 	Meta  ListMeta      `json:"meta"`
 }
 
-func packagesQuery(acc int) *gorm.DB {
+var packagesLoadSelect = database.MustGetSelect(&packageLoadAttrs{})
+
+type packageLoadAttrs struct {
+	NameID           int    `query:"p.name_id"`
+	Name             string `json:"name" query:"pn.name"`
+	SystemsInstalled int    `json:"systems_installed" query:"count(sp.id)"`
+	SystemsUpdatable int    `json:"systems_updatable" query:"count(sp.id) filter (where spkg.update_data is not null)"`
+}
+
+func packagesInnerQuery(acc int) *gorm.DB {
 	return database.Db.Debug().
-		Select(PackagesSelect).
+		Select(packagesLoadSelect).
 		Table("system_platform sp").
 		Joins("inner join system_package spkg on spkg.system_id = sp.id and sp.stale = false").
 		Joins("inner join package p on p.id = spkg.package_id").
@@ -49,22 +49,25 @@ func packagesQuery(acc int) *gorm.DB {
 		Group("p.name_id, pn.name")
 }
 
-
-type packageSummary struct {
-	NameID  int
-	Summary string
-}
-
 // Selects distinct values for each p.name id,
 // order by clause ensures we get the latest released version
-func packageDescQuery(names []int) *gorm.DB {
+func packagesSumQuery(account int) *gorm.DB {
 	return database.Db.Debug().
-		Select("distinct on(p.name_id) p.name_id, s.value").
+		Select("distinct on(p.name_id) p.name_id, am.summary").
 		Table("package p").
 		Joins("inner join strings s on p.summary_hash = s.id").
-		Joins("inner join advisory_metadata am on p.advisory_id = am.id").
-		Where("p.name_id in (?)", names).
+		Joins("join advisory_metadata am on p.advisory_id = am.id").
 		Order("p.name_id, am.public_date")
+}
+
+func packagesFinalQuery(account int) *gorm.DB {
+	packages := packagesInnerQuery(account).SubQuery()
+	sums := packagesSumQuery(account).SubQuery()
+	return database.Db.Debug().
+		Table("package_name pn").
+		Select(PackagesSelect).
+		Joins("INNER JOIN ? detail on pn.id = detail.name_id", packages).
+		Joins("INNER JOIN ? sum on pn.id = sum.name_id", sums)
 }
 
 // @Summary Show me all installed packages across my systems
@@ -86,7 +89,7 @@ func packageDescQuery(names []int) *gorm.DB {
 func PackagesListHandler(c *gin.Context) {
 	account := c.GetInt(middlewares.KeyAccount)
 
-	query := packagesQuery(account)
+	query := packagesFinalQuery(account)
 	query, meta, links, err := ListCommon(query, c, "/packages", PackagesOpts)
 	query = ApplySearch(c, query, "pn.name")
 	query, _ = ApplyTagsFilter(c, query, "sp.inventory_id")
@@ -96,36 +99,11 @@ func PackagesListHandler(c *gin.Context) {
 		return
 	}
 	// Loading just information based on package names
-	var itemQ []PackageItemQuery
-	err = query.Find(&itemQ).Error
+	var systems []PackageItem
+	err = query.Find(&systems).Error
 	if err != nil {
 		LogAndRespError(c, err, "database error")
 		return
-	}
-
-	// We pick out the names of returned packages
-	nameIds := make([]int, len(itemQ))
-	for i, s := range itemQ {
-		nameIds[i] = s.NameID
-	}
-
-	// Find summaries of latest versions for given packages
-	var summaries []packageSummary
-	summaryQuery := packageDescQuery(nameIds)
-	if err := summaryQuery.Find(&summaries).Error; err != nil {
-		LogAndRespError(c, err, "database error")
-		return
-	}
-
-	// And assembe the results
-	systems := make([]PackageItem, len(itemQ))
-	for i, s := range itemQ {
-		systems[i].PackageItemAttrs = s.PackageItemAttrs
-		for _, sum := range summaries {
-			if sum.NameID == s.NameID {
-				systems[i].Summary = sum.Summary
-			}
-		}
 	}
 
 	c.JSON(200, PackagesResponse{
