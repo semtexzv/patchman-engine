@@ -1512,13 +1512,13 @@
                     "description": {
                         "type": "string"
                     },
+                    "evra": {
+                        "type": "string"
+                    },
                     "name": {
                         "type": "string"
                     },
                     "summary": {
-                        "type": "string"
-                    },
-                    "version": {
                         "type": "string"
                     }
                 }

@@ -25,7 +25,7 @@ func TestLatestPackage(t *testing.T) {
 	assert.Equal(t, "kernel", output.Data.Attributes.Summary)
 	assert.Equal(t, "kernel", output.Data.Attributes.Name)
 	assert.Equal(t, "5.6.13-201.fc31.x86_64", output.Data.Attributes.EVRA)
-	assert.Equal(t, "RH-7", output.Data.Attributes.AdvID)
+	assert.Equal(t, "RH-7", output.Data.Attributes.AdvisoryID)
 	assert.Equal(t, "kernel-5.6.13-201.fc31.x86_64", output.Data.ID)
 	assert.Equal(t, "package", output.Data.Type)
 }
@@ -46,7 +46,7 @@ func TestEvraPackage(t *testing.T) {
 	assert.Equal(t, "kernel", output.Data.Attributes.Summary)
 	assert.Equal(t, "kernel", output.Data.Attributes.Name)
 	assert.Equal(t, "5.6.13-200.fc31.x86_64", output.Data.Attributes.EVRA)
-	assert.Equal(t, "RH-1", output.Data.Attributes.AdvID)
+	assert.Equal(t, "RH-1", output.Data.Attributes.AdvisoryID)
 	assert.Equal(t, "kernel-5.6.13-200.fc31.x86_64", output.Data.ID)
 	assert.Equal(t, "package", output.Data.Type)
 }
@@ -59,10 +59,10 @@ func TestNonExitentPackage(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/packages/python", nil)
 	core.InitRouterWithParams(PackageDetailHandler, 3, "GET", "/packages/:package_name").
 		ServeHTTP(w, req)
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusNotFound, w.Code)
 	var errResp utils.ErrorResponse
 	ParseReponseBody(t, w.Body.Bytes(), &errResp)
-	assert.Equal(t, "invalid package name", errResp.Error)
+	assert.Equal(t, "package not found", errResp.Error)
 }
 
 func TestNonExitentEvra(t *testing.T) {
