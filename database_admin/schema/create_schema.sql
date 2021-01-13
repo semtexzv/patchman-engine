@@ -411,6 +411,7 @@ BEGIN
             SELECT id
             FROM system_platform
             WHERE id = ANY (ids)
+            ORDER BY id
                 FOR UPDATE OF system_platform
         );
 
