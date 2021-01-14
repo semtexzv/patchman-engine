@@ -24,8 +24,8 @@ type AdvisoriesSystemsResponse struct {
 }
 
 type systemsAdvisoriesDBLoad struct {
-	SystemID   SystemID     `query:"sp.inventory_id"`
-	AdvisoryID AdvisoryName `query:"am.name"`
+	SystemID   SystemID     `query:"sp.inventory_id" gorm:"column:system_id"`
+	AdvisoryID AdvisoryName `query:"am.name" gorm:"column:advisory_id"`
 }
 
 var systemsAdvisoriesSelect = database.MustGetSelect(&systemsAdvisoriesDBLoad{})
@@ -37,7 +37,7 @@ func systemsAdvisoriesQuery(acc int, systems []SystemID, advisories []AdvisoryNa
 		Joins("join system_platform sp on sp.rh_account_id = ? and sp.id = sa.system_id", acc).
 		Joins("join advisory_metadata am on am.id = sa.advisory_id").
 		Where("sp.rh_account_id = ?", acc).
-		Where("sp.inventory_id in (?::uuid)", systems).
+		Where("sp.inventory_id::text in (?)", systems).
 		Where("am.name in (?)", advisories).
 		Order("sp.inventory_id, am.id")
 
