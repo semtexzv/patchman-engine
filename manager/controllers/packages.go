@@ -14,11 +14,11 @@ var PackagesOpts = ListOpts{
 	// By default, we show only fresh systems. If all systems are required, you must pass in:true,false filter into the api
 	DefaultFilters: map[string]FilterData{},
 	DefaultSort:    "name",
-	SearchFields:   []string{"res.name", "latest.summary"},
+	SearchFields:   []string{"pn.name", "latest.summary"},
 }
 
 type PackageItem struct {
-	Name             string `json:"name" csv:"name" query:"res.name"`
+	Name             string `json:"name" csv:"name" query:"pn.name"`
 	SystemsInstalled int    `json:"systems_installed" csv:"systems_installed" query:"res.systems_installed"`
 	SystemsUpdatable int    `json:"systems_updatable" csv:"systems_updatable" query:"res.systems_updatable"`
 	Summary          string `json:"summary" csv:"summary" query:"latest.summary"`
@@ -33,10 +33,9 @@ type PackagesResponse struct {
 // nolint: lll
 // Used as a for subquery performing the actual calculation which is joined with latest summaries
 type queryItem struct {
-	NameID           int    `query:"p.name_id"`
-	Name             string `json:"name" query:"pn.name"`
-	SystemsInstalled int    `json:"systems_installed" query:"count(spkg.system_id)"`
-	SystemsUpdatable int    `json:"systems_updatable" query:"count(spkg.system_id) filter (where spkg.latest_evra IS NOT NULL)"`
+	NameID           int `query:"p.name_id"`
+	SystemsInstalled int `json:"systems_installed" query:"count(spkg.system_id)"`
+	SystemsUpdatable int `json:"systems_updatable" query:"count(spkg.system_id) filter (where spkg.latest_evra IS NOT NULL)"`
 }
 
 var queryItemSelect = database.MustGetSelect(&queryItem{})
@@ -47,11 +46,10 @@ func packagesQuery(c *gin.Context, acc int) (*gorm.DB, error) {
 		Select(queryItemSelect).
 		Table("system_package spkg").
 		Joins("inner join system_platform sp on sp.id = spkg.system_id and sp.rh_account_id = ?", acc).
-		Where("sp.stale = false").
 		Joins("inner join package p on p.id = spkg.package_id").
-		Joins("inner join package_name pn on pn.id = p.name_id").
+		Where("sp.stale = false").
 		Where("spkg.rh_account_id = ?", acc).
-		Group("p.name_id, pn.name")
+		Group("p.name_id")
 
 	if applyInventoryHosts {
 		subQ = subQ.Joins("JOIN inventory.hosts ih ON ih.id::text = sp.inventory_id")
@@ -63,10 +61,11 @@ func packagesQuery(c *gin.Context, acc int) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	return database.Db.
+	return database.Db.Debug().
 		Select(PackagesSelect).
 		Table("package_latest_cache latest").
-		Joins("INNER JOIN ? res ON res.name_id = latest.name_id", subQ.SubQuery()), nil
+		Joins("INNER JOIN ? res ON res.name_id = latest.name_id", subQ.SubQuery()).
+		Joins("INNER JOIN package_name pn on pn.id = res.name_id"), nil
 }
 
 // @Summary Show me all installed packages across my systems
