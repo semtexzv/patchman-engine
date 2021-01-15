@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations
 
 
 INSERT INTO schema_migrations
-VALUES (46, false);
+VALUES (47, false);
 
 -- ---------------------------------------------------------------------------
 -- Functions
@@ -889,8 +889,13 @@ CREATE TABLE IF NOT EXISTS system_package
     -- Use null to represent up-to-date packages
     update_data   JSONB DEFAULT NULL,
     latest_evra   TEXT GENERATED ALWAYS AS ( ((update_data ->> -1)::jsonb ->> 'evra')::text) STORED,
+    name_id       INTEGER REFERENCES package_name (id) NOT NULL ,
+
     PRIMARY KEY (rh_account_id, system_id, package_id) INCLUDE (latest_evra)
 ) PARTITION BY HASH (rh_account_id);
+
+CREATE INDEX IF NOT EXISTS system_package_name_pkg_system_idx
+    ON system_package (rh_account_id, name_id, package_id, system_id) INCLUDE (latest_evra);
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON system_package TO evaluator;
 GRANT SELECT, UPDATE, DELETE ON system_package TO listener;
