@@ -155,9 +155,7 @@ func ListCommon(tx *gorm.DB, c *gin.Context, path string, opts ListOpts, params 
 	// SELECT "advisory_metadata am"."id","advisory_metadata am"."description" ...
 	// using Count(&total) generates SELECT COUNT("sa"."*")
 	var total int64
-	err = tx.Session(&gorm.Session{
-			WithConditions: true,
-		}).Unscoped().Select("COUNT (*)").Find(&total).Error
+	err = tx.Session(&gorm.Session{}).Unscoped().Select("COUNT (*)").Find(&total).Error
 	if err != nil {
 		LogAndRespError(c, err, "Database connection error")
 		return nil, nil, nil, err

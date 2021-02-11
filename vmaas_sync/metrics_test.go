@@ -6,6 +6,7 @@ import (
 	"app/base/models"
 	"app/base/utils"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/gorm"
 	"testing"
 	"time"
 )
@@ -29,7 +30,7 @@ func TestSystemsCountsOptOut(t *testing.T) {
 	utils.SkipWithoutDB(t)
 	core.SetupTestEnvironment()
 
-	systemsQuery := database.Db.Model(models.SystemPlatform{})
+	systemsQuery := database.Db.Model(models.SystemPlatform{}).Session(&gorm.Session{PrepareStmt: true})
 	var optOuted int64
 	var notOptOuted int64
 	assert.Nil(t, updateSystemsQueryOptOut(systemsQuery, true).Count(&optOuted).Error)

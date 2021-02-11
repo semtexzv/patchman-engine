@@ -30,7 +30,7 @@ require (
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
 	gorm.io/datatypes v1.0.0
 	gorm.io/driver/postgres v1.0.5
-	gorm.io/gorm v1.20.5
+	gorm.io/gorm v1.20.12
 	modernc.org/mathutil v1.0.0
 	modernc.org/strutil v1.1.0
 )

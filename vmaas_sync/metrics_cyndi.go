@@ -96,10 +96,11 @@ func updateCyndiSystemMetrics() {
 }
 
 func getCyndiCounts(refTime time.Time) (map[string]int, error) {
-	systemsQuery := database.Db.Table("inventory.hosts")
 	lastUploadKV := map[string]int{lastUploadLast1D: 1, lastUploadLast7D: 7, lastUploadLast30D: 30, lastUploadAll: -1}
 	counts := map[string]int{}
 	for lastUploadK, lastUploadV := range lastUploadKV {
+		systemsQuery := database.Db.Table("inventory.hosts").
+			Session(&gorm.Session{PrepareStmt: true})
 		systemsQueryOptOutLastUpload := updateCyndiQueryLastUpload(systemsQuery, refTime, lastUploadV)
 		var nSystems int64
 		err := systemsQueryOptOutLastUpload.Count(&nSystems).Error

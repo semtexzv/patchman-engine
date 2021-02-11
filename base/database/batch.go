@@ -3,13 +3,14 @@ package database
 // This file was adapted from https://github.com/bombsimon/gorm-bulk
 // nolint: gofmt
 import (
-	// "app/base/utils"
+	"app/base/utils"
 	"fmt"
 	"reflect"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -231,6 +232,7 @@ func parseClause(clauseOnConflict clause.Expression) string {
 
 // objectToMap takes any object of type <T> and returns a map with the gorm
 // field DB name as key and the value as value
+//nolint: unconvert, gocognit, funlen
 func objectToMap(db *gorm.DB, object interface{}) (map[string]interface{}, error) {
 	var attributes = map[string]interface{}{}
 	var now = bulkNow
@@ -252,14 +254,11 @@ func objectToMap(db *gorm.DB, object interface{}) (map[string]interface{}, error
 	parsedSchema, _ := schema.Parse(object, &sync.Map{}, db.NamingStrategy)
 	for _, field := range parsedSchema.Fields {
 		// Exclude relational record because it's not directly contained in database columns
+		fieldVaule := rv.FieldByName(field.Name).Interface()
 		_, hasForeignKey := field.TagSettings["FOREIGNKEY"]
 		if hasForeignKey {
 			continue
 		}
-
-		// if fieldSchema.Schema.Relationships.Relations != nil {
-		// 	continue
-		// }
 
 		if ok := field.TagSettings["-"]; ok != "" {
 			continue
@@ -276,8 +275,18 @@ func objectToMap(db *gorm.DB, object interface{}) (map[string]interface{}, error
 
 		// Skip blank primary key fields named ID. They're probably coming from
 		// `gorm.Model` which doesn't have the AUTO_INCREMENT tag.
-		if field.DBName == "id" && field.PrimaryKey && field != nil {
+		_, isAutoInc := field.TagSettings["AUTOINCREMENT"]
+		if field.DBName == "id" && field.PrimaryKey && field != nil && !isAutoInc {
 			continue
+		} else if isAutoInc {
+			utils.Log().Info(reflect.TypeOf(fieldVaule))
+			utils.Log().Info(fieldVaule)
+			attributes[field.DBName] = rv.FieldByName(field.Name).Interface()
+			continue
+		}
+		if field.DBName == "description_hash" {
+			utils.Log().Info(reflect.TypeOf(fieldVaule))
+			utils.Log().Info(fieldVaule)
 		}
 
 		if field.StructField.Name == "CreatedAt" || field.StructField.Name == "UpdatedAt" {
@@ -286,8 +295,7 @@ func objectToMap(db *gorm.DB, object interface{}) (map[string]interface{}, error
 				continue
 			}
 		}
-		// utils.Log().Info(rv.FieldByName(field.Name))
-		attributes[field.DBName] = rv.FieldByName(field.Name).Interface()
+		attributes[field.DBName] = fieldVaule
 	}
 	return attributes, nil
 }

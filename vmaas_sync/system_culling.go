@@ -58,10 +58,11 @@ func RunSystemCulling() {
 	}
 }
 
+// https://github.com/go-gorm/gorm/issues/3722
 func deleteCulledSystems(tx *gorm.DB, limitDeleted int) (nDeleted int, err error) {
 	var nDeletedArr []int
 	err = tx.Raw("select delete_culled_systems(?)", limitDeleted).
-		Pluck("delete_culled_systems", &nDeletedArr).Error
+		Find(&nDeletedArr).Error
 	if len(nDeletedArr) > 0 {
 		nDeleted = nDeletedArr[0]
 	}
@@ -72,7 +73,7 @@ func deleteCulledSystems(tx *gorm.DB, limitDeleted int) (nDeleted int, err error
 func markSystemsStale(tx *gorm.DB) (nMarked int, err error) {
 	var nMarkedArr []int
 	err = tx.Raw("select mark_stale_systems()").
-		Pluck("mark_stale_systems", &nMarkedArr).Error
+		Find(&nMarkedArr).Error
 	if len(nMarkedArr) > 0 {
 		nMarked = nMarkedArr[0]
 	}

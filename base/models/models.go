@@ -56,7 +56,7 @@ func (SystemPlatform) TableName() string {
 }
 
 type String struct {
-	ID    []byte `gorm:"primary_key"`
+	ID    []byte `gorm:"primary_key;autoIncrement"`
 	Value string
 }
 

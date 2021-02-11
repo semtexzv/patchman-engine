@@ -168,12 +168,13 @@ type systemsCntLabels struct {
 // Load stored systems counts according to "opt_out" and "last_upload" properties.
 // Result is loaded into the map {"opt_out_on:last1D": 12, "opt_out_off:last1D": 3, ...}.
 func getSystemCounts(refTime time.Time) (map[systemsCntLabels]int, error) {
-	systemsQuery := database.Db.Model(&models.SystemPlatform{})
 	optOutKV := map[string]bool{optOutOn: true, optOutOff: false}
 	lastUploadKV := map[string]int{lastUploadLast1D: 1, lastUploadLast7D: 7, lastUploadLast30D: 30, lastUploadAll: -1}
 	counts := map[systemsCntLabels]int{}
 	for optOutK, optOutV := range optOutKV {
-		systemsQueryOptOut := updateSystemsQueryOptOut(systemsQuery, optOutV)
+		systemsQuery := database.Db.Model(&models.SystemPlatform{})
+		systemsQueryOptOut := updateSystemsQueryOptOut(systemsQuery, optOutV).
+			Session(&gorm.Session{PrepareStmt: true})
 		for lastUploadK, lastUploadV := range lastUploadKV {
 			systemsQueryOptOutLastUpload := updateSystemsQueryLastUpload(systemsQueryOptOut, refTime, lastUploadV)
 			var nSystems int64
@@ -190,14 +191,14 @@ func getSystemCounts(refTime time.Time) (map[systemsCntLabels]int, error) {
 
 // Update input systems query with "opt_out = X" constraint.
 func updateSystemsQueryOptOut(systemsQuery *gorm.DB, optOut bool) *gorm.DB {
-	return systemsQuery.Where("opt_out = ?", optOut)
+	return systemsQuery.Where("(opt_out = ?)", optOut)
 }
 
 // Update input systems query with "last_upload > T" constraint.
 // Constraint is not added if "lastNDays" argument is negative.
 func updateSystemsQueryLastUpload(systemsQuery *gorm.DB, refTime time.Time, lastNDays int) *gorm.DB {
 	if lastNDays >= 0 {
-		return systemsQuery.Where("last_upload > ?", refTime.AddDate(0, 0, -lastNDays))
+		return systemsQuery.Where("(last_upload > ?)", refTime.AddDate(0, 0, -lastNDays))
 	}
 	return systemsQuery
 }
@@ -214,7 +215,8 @@ func updateAdvisoryMetrics() {
 }
 
 func getAdvisoryCounts() (unknown, enh, bug, sec int64, err error) {
-	advisoryQuery := database.Db.Model(&models.AdvisoryMetadata{})
+	advisoryQuery := database.Db.Model(&models.AdvisoryMetadata{}).
+		Session(&gorm.Session{PrepareStmt: true})
 	err = advisoryQuery.Where("advisory_type_id = 0").Count(&unknown).Error
 	if err != nil {
 		return 0, 0, 0, 0, errors.Wrap(err, "unable to get advisories count - type unknown")
@@ -256,11 +258,12 @@ type SystemAdvisoryStats struct {
 	MaxSec int
 }
 
+// Old query was inserting ORDER BY "system_platform"."max_all" AND max_all
 func getSystemAdvisorieStats() (stats SystemAdvisoryStats, err error) {
-	err = database.Db.Unscoped().Table("system_platform").
-		Select("MAX(advisory_count_cache) as max_all, MAX(advisory_enh_count_cache) as max_enh," +
-			"MAX(advisory_bug_count_cache) as max_bug, MAX(advisory_sec_count_cache) as max_sec").
-		Order("max_all").First(&stats).Error
+	err = database.Db.Raw("SELECT MAX(advisory_count_cache) as max_all, " +
+		"MAX(advisory_enh_count_cache) as max_enh,MAX(advisory_bug_count_cache) " +
+		"as max_bug, MAX(advisory_sec_count_cache) as max_sec FROM " +
+		"system_platform ORDER BY max_all LIMIT 1").Scan(&stats).Error
 	if err != nil {
 		return stats, errors.Wrap(err, "unable to get system advisory stats from db")
 	}

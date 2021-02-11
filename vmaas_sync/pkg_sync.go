@@ -172,8 +172,10 @@ func storePackageDetails(tx *gorm.DB, advisoryIDs map[utils.Nevra]int, nameIDs m
 		}
 	}
 
-	if err := database.Db.Updates(&updates).Error; err != nil {
-		return errors.Wrap(err, "")
+	for _, update := range updates {
+		if err := database.Db.Updates(update).Error; err != nil {
+			return errors.Wrap(err, "")
+		}
 	}
 
 	tx = tx.Clauses(clause.OnConflict{
