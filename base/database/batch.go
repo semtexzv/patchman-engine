@@ -3,7 +3,6 @@ package database
 // This file was adapted from https://github.com/bombsimon/gorm-bulk
 // nolint: gofmt
 import (
-	"app/base/utils"
 	"fmt"
 	"reflect"
 	"sort"
@@ -254,7 +253,8 @@ func objectToMap(db *gorm.DB, object interface{}) (map[string]interface{}, error
 	parsedSchema, _ := schema.Parse(object, &sync.Map{}, db.NamingStrategy)
 	for _, field := range parsedSchema.Fields {
 		// Exclude relational record because it's not directly contained in database columns
-		fieldVaule := rv.FieldByName(field.Name).Interface()
+		fieldValue := rv.FieldByName(field.Name).Interface()
+
 		_, hasForeignKey := field.TagSettings["FOREIGNKEY"]
 		if hasForeignKey {
 			continue
@@ -267,35 +267,22 @@ func objectToMap(db *gorm.DB, object interface{}) (map[string]interface{}, error
 		// Let the DBM set the default values since these might be meta values such as 'CURRENT_TIMESTAMP'. Has default
 		// will be set to true also for 'AUTO_INCREMENT' fields which is not primary keys so we must check that we've
 		// ACTUALLY configured a default value and uses the tag before we skip it.
-		if field.HasDefaultValue && field != nil {
+		if field.HasDefaultValue && fieldValue == nil {
 			if _, ok := field.TagSettings["DEFAULT"]; ok {
 				continue
 			}
 		}
 
-		// Skip blank primary key fields named ID. They're probably coming from
-		// `gorm.Model` which doesn't have the AUTO_INCREMENT tag.
-		_, isAutoInc := field.TagSettings["AUTOINCREMENT"]
-		if field.DBName == "id" && field.PrimaryKey && field != nil && !isAutoInc {
-			continue
-		} else if isAutoInc {
-			utils.Log().Info(reflect.TypeOf(fieldVaule))
-			utils.Log().Info(fieldVaule)
-			attributes[field.DBName] = rv.FieldByName(field.Name).Interface()
+		if field.DBName == "id" && field.PrimaryKey && fieldValue == nil {
 			continue
 		}
-		if field.DBName == "description_hash" {
-			utils.Log().Info(reflect.TypeOf(fieldVaule))
-			utils.Log().Info(fieldVaule)
-		}
-
 		if field.StructField.Name == "CreatedAt" || field.StructField.Name == "UpdatedAt" {
 			if field != nil {
 				attributes[field.DBName] = now
 				continue
 			}
 		}
-		attributes[field.DBName] = fieldVaule
+		attributes[field.DBName] = fieldValue
 	}
 	return attributes, nil
 }
